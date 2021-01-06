@@ -20,15 +20,7 @@
  */
 package com.csvreader;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.text.NumberFormat;
 import java.util.HashMap;
@@ -38,67 +30,46 @@ import java.util.HashMap;
  * stream.
  */
 public class CsvReader {
-    private Reader inputStream = null;
-
-    private String fileName = null;
-
-    // this holds all the values for switches that the user is allowed to set
-    private UserSettings userSettings = new UserSettings();
-
-    private Charset charset = null;
-
-    private boolean useCustomRecordDelimiter = false;
-
-    // this will be our working buffer to hold data chunks
-    // read in from the data file
-
-    private DataBuffer dataBuffer = new DataBuffer();
-
-    private ColumnBuffer columnBuffer = new ColumnBuffer();
-
-    private RawRecordBuffer rawBuffer = new RawRecordBuffer();
-
-    private boolean[] isQualified = null;
-
-    private String rawRecord = "";
-
-    private HeadersHolder headersHolder = new HeadersHolder();
-
-    // these are all more or less global loop variables
-    // to keep from needing to pass them all into various
-    // methods during parsing
-
-    private boolean startedColumn = false;
-
-    private boolean startedWithQualifier = false;
-
-    private boolean hasMoreData = true;
-
-    private char lastLetter = '\0';
-
-    private boolean hasReadNextLine = false;
-
-    private int columnsCount = 0;
-
-    private long currentRecord = 0;
-
-    private String[] values = new String[StaticSettings.INITIAL_COLUMN_COUNT];
-
-    private boolean initialized = false;
-
-    private boolean closed = false;
-
     /**
      * Double up the text qualifier to represent an occurance of the text
      * qualifier.
      */
     public static final int ESCAPE_MODE_DOUBLED = 1;
-
     /**
      * Use a backslash character before the text qualifier to represent an
      * occurance of the text qualifier.
      */
     public static final int ESCAPE_MODE_BACKSLASH = 2;
+
+    private Reader inputStream = null;
+    private String fileName = null;
+    // this holds all the values for switches that the user is allowed to set
+    private UserSettings userSettings = new UserSettings();
+
+    // this will be our working buffer to hold data chunks
+    // read in from the data file
+    private Charset charset = null;
+    private boolean useCustomRecordDelimiter = false;
+    private DataBuffer dataBuffer = new DataBuffer();
+    private ColumnBuffer columnBuffer = new ColumnBuffer();
+    private RawRecordBuffer rawBuffer = new RawRecordBuffer();
+    private boolean[] isQualified = null;
+
+    // these are all more or less global loop variables
+    // to keep from needing to pass them all into various
+    // methods during parsing
+    private String rawRecord = "";
+    private HeadersHolder headersHolder = new HeadersHolder();
+    private boolean startedColumn = false;
+    private boolean startedWithQualifier = false;
+    private boolean hasMoreData = true;
+    private char lastLetter = '\0';
+    private boolean hasReadNextLine = false;
+    private int columnsCount = 0;
+    private long currentRecord = 0;
+    private String[] values = new String[StaticSettings.INITIAL_COLUMN_COUNT];
+    private boolean initialized = false;
+    private boolean closed = false;
 
     /**
      * Creates a {@link com.csvreader.CsvReader CsvReader} object using a file
@@ -212,6 +183,24 @@ public class CsvReader {
      */
     public CsvReader(InputStream inputStream, Charset charset) {
         this(new InputStreamReader(inputStream, charset));
+    }
+
+    /**
+     * Creates a {@link com.csvreader.CsvReader CsvReader} object using a string
+     * of data as the source.&nbsp;Uses ISO-8859-1 as the
+     * {@link java.nio.charset.Charset Charset}.
+     *
+     * @param data The String of data to use as the source.
+     * @return A {@link com.csvreader.CsvReader CsvReader} object using the
+     * String of data as the source.
+     */
+    public static CsvReader parse(String data) {
+        if (data == null) {
+            throw new IllegalArgumentException(
+                    "Parameter data can not be null.");
+        }
+
+        return new CsvReader(new StringReader(data));
     }
 
     public boolean getCaptureRawRecord() {
@@ -526,24 +515,6 @@ public class CsvReader {
         checkClosed();
 
         return get(getIndex(headerName));
-    }
-
-    /**
-     * Creates a {@link com.csvreader.CsvReader CsvReader} object using a string
-     * of data as the source.&nbsp;Uses ISO-8859-1 as the
-     * {@link java.nio.charset.Charset Charset}.
-     *
-     * @param data The String of data to use as the source.
-     * @return A {@link com.csvreader.CsvReader CsvReader} object using the
-     * String of data as the source.
-     */
-    public static CsvReader parse(String data) {
-        if (data == null) {
-            throw new IllegalArgumentException(
-                    "Parameter data can not be null.");
-        }
-
-        return new CsvReader(new StringReader(data));
     }
 
     /**
@@ -1124,67 +1095,6 @@ public class CsvReader {
     }
 
     /**
-     * @throws IOException Thrown if an error occurs while reading data from the
-     *                     source stream.
-     */
-    private void checkDataLength() throws IOException {
-        if (!initialized) {
-            if (fileName != null) {
-                inputStream = new BufferedReader(new InputStreamReader(
-                        new FileInputStream(fileName), charset),
-                        StaticSettings.MAX_FILE_BUFFER_SIZE);
-            }
-
-            charset = null;
-            initialized = true;
-        }
-
-        updateCurrentValue();
-
-        if (userSettings.CaptureRawRecord && dataBuffer.Count > 0) {
-            if (rawBuffer.Buffer.length - rawBuffer.Position < dataBuffer.Count
-                    - dataBuffer.LineStart) {
-                int newLength = rawBuffer.Buffer.length
-                        + Math.max(dataBuffer.Count - dataBuffer.LineStart,
-                        rawBuffer.Buffer.length);
-
-                char[] holder = new char[newLength];
-
-                System.arraycopy(rawBuffer.Buffer, 0, holder, 0,
-                        rawBuffer.Position);
-
-                rawBuffer.Buffer = holder;
-            }
-
-            System.arraycopy(dataBuffer.Buffer, dataBuffer.LineStart,
-                    rawBuffer.Buffer, rawBuffer.Position, dataBuffer.Count
-                            - dataBuffer.LineStart);
-
-            rawBuffer.Position += dataBuffer.Count - dataBuffer.LineStart;
-        }
-
-        try {
-            dataBuffer.Count = inputStream.read(dataBuffer.Buffer, 0,
-                    dataBuffer.Buffer.length);
-        } catch (IOException ex) {
-            close();
-
-            throw ex;
-        }
-
-        // if no more data could be found, set flag stating that
-        // the end of the data was found
-
-        if (dataBuffer.Count == -1) {
-            hasMoreData = false;
-        }
-
-        dataBuffer.Position = 0;
-        dataBuffer.LineStart = 0;
-        dataBuffer.ColumnStart = 0;
-    }
-
-    /**
      * Read the first record of data as column headers.
      *
      * @return Whether the header record was successfully read or not.
@@ -1251,6 +1161,195 @@ public class CsvReader {
         } else {
             return false;
         }
+    }
+
+    /**
+     * Gets the corresponding column index for a given column header name.
+     *
+     * @param headerName The header name of the column.
+     * @return The column index for the given column header name.&nbsp;Returns
+     * -1 if not found.
+     * @throws IOException Thrown if this object has already been closed.
+     */
+    public int getIndex(String headerName) throws IOException {
+        checkClosed();
+
+        Object indexValue = headersHolder.IndexByName.get(headerName);
+
+        if (indexValue != null) {
+            return ((Integer) indexValue).intValue();
+        } else {
+            return -1;
+        }
+    }
+
+    /**
+     * Skips the next record of data by parsing each column.&nbsp;Does not
+     * increment
+     * {@link com.csvreader.CsvReader#getCurrentRecord getCurrentRecord()}.
+     *
+     * @return Whether another record was successfully skipped or not.
+     * @throws IOException Thrown if an error occurs while reading data from the
+     *                     source stream.
+     */
+    public boolean skipRecord() throws IOException {
+        checkClosed();
+
+        boolean recordRead = false;
+
+        if (hasMoreData) {
+            recordRead = readRecord();
+
+            if (recordRead) {
+                currentRecord--;
+            }
+        }
+
+        return recordRead;
+    }
+
+    /**
+     * Skips the next line of data using the standard end of line characters and
+     * does not do any column delimited parsing.
+     *
+     * @return Whether a line was successfully skipped or not.
+     * @throws IOException Thrown if an error occurs while reading data from the
+     *                     source stream.
+     */
+    public boolean skipLine() throws IOException {
+        checkClosed();
+
+        // clear public column values for current line
+
+        columnsCount = 0;
+
+        boolean skippedLine = false;
+
+        if (hasMoreData) {
+            boolean foundEol = false;
+
+            do {
+                if (dataBuffer.Position == dataBuffer.Count) {
+                    checkDataLength();
+                } else {
+                    skippedLine = true;
+
+                    // grab the current letter as a char
+
+                    char currentLetter = dataBuffer.Buffer[dataBuffer.Position];
+
+                    if (currentLetter == Letters.CR
+                            || currentLetter == Letters.LF) {
+                        foundEol = true;
+                    }
+
+                    // keep track of the last letter because we need
+                    // it for several key decisions
+
+                    lastLetter = currentLetter;
+
+                    if (!foundEol) {
+                        dataBuffer.Position++;
+                    }
+
+                } // end else
+            } while (hasMoreData && !foundEol);
+
+            columnBuffer.Position = 0;
+
+            dataBuffer.LineStart = dataBuffer.Position + 1;
+        }
+
+        rawBuffer.Position = 0;
+        rawRecord = "";
+
+        return skippedLine;
+    }
+
+    /**
+     * Closes and releases all related resources.
+     */
+    public void close() {
+        if (!closed) {
+            close(true);
+
+            closed = true;
+        }
+    }
+
+    private static char hexToDec(char hex) {
+        char result;
+
+        if (hex >= 'a') {
+            result = (char) (hex - 'a' + 10);
+        } else if (hex >= 'A') {
+            result = (char) (hex - 'A' + 10);
+        } else {
+            result = (char) (hex - '0');
+        }
+
+        return result;
+    }
+
+    /**
+     * @throws IOException Thrown if an error occurs while reading data from the
+     *                     source stream.
+     */
+    private void checkDataLength() throws IOException {
+        if (!initialized) {
+            if (fileName != null) {
+                inputStream = new BufferedReader(new InputStreamReader(
+                        new FileInputStream(fileName), charset),
+                        StaticSettings.MAX_FILE_BUFFER_SIZE);
+            }
+
+            charset = null;
+            initialized = true;
+        }
+
+        updateCurrentValue();
+
+        if (userSettings.CaptureRawRecord && dataBuffer.Count > 0) {
+            if (rawBuffer.Buffer.length - rawBuffer.Position < dataBuffer.Count
+                    - dataBuffer.LineStart) {
+                int newLength = rawBuffer.Buffer.length
+                        + Math.max(dataBuffer.Count - dataBuffer.LineStart,
+                        rawBuffer.Buffer.length);
+
+                char[] holder = new char[newLength];
+
+                System.arraycopy(rawBuffer.Buffer, 0, holder, 0,
+                        rawBuffer.Position);
+
+                rawBuffer.Buffer = holder;
+            }
+
+            System.arraycopy(dataBuffer.Buffer, dataBuffer.LineStart,
+                    rawBuffer.Buffer, rawBuffer.Position, dataBuffer.Count
+                            - dataBuffer.LineStart);
+
+            rawBuffer.Position += dataBuffer.Count - dataBuffer.LineStart;
+        }
+
+        try {
+            dataBuffer.Count = inputStream.read(dataBuffer.Buffer, 0,
+                    dataBuffer.Buffer.length);
+        } catch (IOException ex) {
+            close();
+
+            throw ex;
+        }
+
+        // if no more data could be found, set flag stating that
+        // the end of the data was found
+
+        if (dataBuffer.Count == -1) {
+            hasMoreData = false;
+        }
+
+        dataBuffer.Position = 0;
+        dataBuffer.LineStart = 0;
+        dataBuffer.ColumnStart = 0;
     }
 
     /**
@@ -1398,120 +1497,6 @@ public class CsvReader {
     }
 
     /**
-     * Gets the corresponding column index for a given column header name.
-     *
-     * @param headerName The header name of the column.
-     * @return The column index for the given column header name.&nbsp;Returns
-     * -1 if not found.
-     * @throws IOException Thrown if this object has already been closed.
-     */
-    public int getIndex(String headerName) throws IOException {
-        checkClosed();
-
-        Object indexValue = headersHolder.IndexByName.get(headerName);
-
-        if (indexValue != null) {
-            return ((Integer) indexValue).intValue();
-        } else {
-            return -1;
-        }
-    }
-
-    /**
-     * Skips the next record of data by parsing each column.&nbsp;Does not
-     * increment
-     * {@link com.csvreader.CsvReader#getCurrentRecord getCurrentRecord()}.
-     *
-     * @return Whether another record was successfully skipped or not.
-     * @throws IOException Thrown if an error occurs while reading data from the
-     *                     source stream.
-     */
-    public boolean skipRecord() throws IOException {
-        checkClosed();
-
-        boolean recordRead = false;
-
-        if (hasMoreData) {
-            recordRead = readRecord();
-
-            if (recordRead) {
-                currentRecord--;
-            }
-        }
-
-        return recordRead;
-    }
-
-    /**
-     * Skips the next line of data using the standard end of line characters and
-     * does not do any column delimited parsing.
-     *
-     * @return Whether a line was successfully skipped or not.
-     * @throws IOException Thrown if an error occurs while reading data from the
-     *                     source stream.
-     */
-    public boolean skipLine() throws IOException {
-        checkClosed();
-
-        // clear public column values for current line
-
-        columnsCount = 0;
-
-        boolean skippedLine = false;
-
-        if (hasMoreData) {
-            boolean foundEol = false;
-
-            do {
-                if (dataBuffer.Position == dataBuffer.Count) {
-                    checkDataLength();
-                } else {
-                    skippedLine = true;
-
-                    // grab the current letter as a char
-
-                    char currentLetter = dataBuffer.Buffer[dataBuffer.Position];
-
-                    if (currentLetter == Letters.CR
-                            || currentLetter == Letters.LF) {
-                        foundEol = true;
-                    }
-
-                    // keep track of the last letter because we need
-                    // it for several key decisions
-
-                    lastLetter = currentLetter;
-
-                    if (!foundEol) {
-                        dataBuffer.Position++;
-                    }
-
-                } // end else
-            } while (hasMoreData && !foundEol);
-
-            columnBuffer.Position = 0;
-
-            dataBuffer.LineStart = dataBuffer.Position + 1;
-        }
-
-        rawBuffer.Position = 0;
-        rawRecord = "";
-
-        return skippedLine;
-    }
-
-    /**
-     * Closes and releases all related resources.
-     */
-    public void close() {
-        if (!closed) {
-            close(true);
-
-            closed = true;
-        }
-    }
-
-    /**
      *
      */
     private void close(boolean closing) {
@@ -1564,20 +1549,6 @@ public class CsvReader {
         private static final int DECIMAL = 3;
 
         private static final int HEX = 4;
-    }
-
-    private static char hexToDec(char hex) {
-        char result;
-
-        if (hex >= 'a') {
-            result = (char) (hex - 'a' + 10);
-        } else if (hex >= 'A') {
-            result = (char) (hex - 'A' + 10);
-        } else {
-            result = (char) (hex - '0');
-        }
-
-        return result;
     }
 
     private class DataBuffer {

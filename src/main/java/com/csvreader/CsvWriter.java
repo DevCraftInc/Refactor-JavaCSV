@@ -20,48 +20,34 @@
  */
 package com.csvreader;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.BufferedWriter;
-import java.io.Writer;
+import java.io.*;
 import java.nio.charset.Charset;
 
 /**
  * A stream based writer for writing delimited text data to a file or a stream.
  */
 public class CsvWriter {
-    private Writer outputStream = null;
-
-    private String fileName = null;
-
-    private boolean firstColumn = true;
-
-    private boolean useCustomRecordDelimiter = false;
-
-    private Charset charset = null;
-
-    // this holds all the values for switches that the user is allowed to set
-    private UserSettings userSettings = new UserSettings();
-
-    private boolean initialized = false;
-
-    private boolean closed = false;
-
-    private String systemRecordDelimiter = System.getProperty("line.separator");
-
     /**
      * Double up the text qualifier to represent an occurrence of the text
      * qualifier.
      */
     public static final int ESCAPE_MODE_DOUBLED = 1;
-
     /**
      * Use a backslash character before the text qualifier to represent an
      * occurrence of the text qualifier.
      */
     public static final int ESCAPE_MODE_BACKSLASH = 2;
+
+    private Writer outputStream = null;
+    private String fileName = null;
+    private boolean firstColumn = true;
+    private boolean useCustomRecordDelimiter = false;
+    private Charset charset = null;
+    // this holds all the values for switches that the user is allowed to set
+    private UserSettings userSettings = new UserSettings();
+    private boolean initialized = false;
+    private boolean closed = false;
+    private String systemRecordDelimiter = System.getProperty("line.separator");
 
     /**
      * Creates a {@link com.csvreader.CsvWriter CsvWriter} object using a file
@@ -125,6 +111,29 @@ public class CsvWriter {
      */
     public CsvWriter(OutputStream outputStream, char delimiter, Charset charset) {
         this(new OutputStreamWriter(outputStream, charset), delimiter);
+    }
+
+    public static String replace(String original, String pattern, String replace) {
+        final int len = pattern.length();
+        int found = original.indexOf(pattern);
+
+        if (found > -1) {
+            StringBuffer sb = new StringBuffer();
+            int start = 0;
+
+            while (found != -1) {
+                sb.append(original.substring(start, found));
+                sb.append(replace);
+                start = found + len;
+                found = original.indexOf(pattern, start);
+            }
+
+            sb.append(original.substring(start));
+
+            return sb.toString();
+        } else {
+            return original;
+        }
     }
 
     /**
@@ -205,12 +214,12 @@ public class CsvWriter {
         userSettings.EscapeMode = escapeMode;
     }
 
-    public void setComment(char comment) {
-        userSettings.Comment = comment;
-    }
-
     public char getComment() {
         return userSettings.Comment;
+    }
+
+    public void setComment(char comment) {
+        userSettings.Comment = comment;
     }
 
     /**
@@ -428,20 +437,6 @@ public class CsvWriter {
     }
 
     /**
-     *
-     */
-    private void checkInit() throws IOException {
-        if (!initialized) {
-            if (fileName != null) {
-                outputStream = new BufferedWriter(new OutputStreamWriter(
-                        new FileOutputStream(fileName), charset));
-            }
-
-            initialized = true;
-        }
-    }
-
-    /**
      * Clears all buffers for the current writer and causes any buffered data to
      * be written to the underlying device.
      *
@@ -460,6 +455,20 @@ public class CsvWriter {
             close(true);
 
             closed = true;
+        }
+    }
+
+    /**
+     *
+     */
+    private void checkInit() throws IOException {
+        if (!initialized) {
+            if (fileName != null) {
+                outputStream = new BufferedWriter(new OutputStreamWriter(
+                        new FileOutputStream(fileName), charset));
+            }
+
+            initialized = true;
         }
     }
 
@@ -548,29 +557,6 @@ public class CsvWriter {
             Comment = Letters.POUND;
             EscapeMode = ESCAPE_MODE_DOUBLED;
             ForceQualifier = false;
-        }
-    }
-
-    public static String replace(String original, String pattern, String replace) {
-        final int len = pattern.length();
-        int found = original.indexOf(pattern);
-
-        if (found > -1) {
-            StringBuffer sb = new StringBuffer();
-            int start = 0;
-
-            while (found != -1) {
-                sb.append(original.substring(start, found));
-                sb.append(replace);
-                start = found + len;
-                found = original.indexOf(pattern, start);
-            }
-
-            sb.append(original.substring(start));
-
-            return sb.toString();
-        } else {
-            return original;
         }
     }
 }
