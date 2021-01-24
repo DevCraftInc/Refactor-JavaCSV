@@ -20,7 +20,15 @@
  */
 package com.csvreader;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.text.NumberFormat;
 import java.util.HashMap;
@@ -1277,20 +1285,6 @@ public class CsvReader {
         }
     }
 
-    private static char hexToDec(char hex) {
-        char result;
-
-        if (hex >= 'a') {
-            result = (char) (hex - 'a' + 10);
-        } else if (hex >= 'A') {
-            result = (char) (hex - 'A' + 10);
-        } else {
-            result = (char) (hex - '0');
-        }
-
-        return result;
-    }
-
     /**
      * @throws IOException Thrown if an error occurs while reading data from the
      *                     source stream.
@@ -1539,6 +1533,20 @@ public class CsvReader {
      */
     protected void finalize() {
         close(false);
+    }
+
+    private static char hexToDec(char hex) {
+        char result;
+
+        if (hex >= 'a') {
+            result = (char) (hex - 'a' + 10);
+        } else if (hex >= 'A') {
+            result = (char) (hex - 'A' + 10);
+        } else {
+            result = (char) (hex - '0');
+        }
+
+        return result;
     }
 
     private class ComplexEscape {
