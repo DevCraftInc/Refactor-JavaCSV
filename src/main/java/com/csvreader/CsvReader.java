@@ -1277,20 +1277,6 @@ public class CsvReader {
         }
     }
 
-    private static char hexToDec(char hex) {
-        char result;
-
-        if (hex >= 'a') {
-            result = (char) (hex - 'a' + 10);
-        } else if (hex >= 'A') {
-            result = (char) (hex - 'A' + 10);
-        } else {
-            result = (char) (hex - '0');
-        }
-
-        return result;
-    }
-
     /**
      * @throws IOException Thrown if an error occurs while reading data from the
      *                     source stream.
@@ -1539,6 +1525,20 @@ public class CsvReader {
      */
     protected void finalize() {
         close(false);
+    }
+
+    private static char hexToDec(char hex) {
+        char result;
+
+        if (hex >= 'a') {
+            result = (char) (hex - 'a' + 10);
+        } else if (hex >= 'A') {
+            result = (char) (hex - 'A' + 10);
+        } else {
+            result = (char) (hex - '0');
+        }
+
+        return result;
     }
 
     private class ComplexEscape {
